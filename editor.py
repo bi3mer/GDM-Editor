@@ -24,6 +24,8 @@ class Editor:
         self.canvas = tk.Canvas(self.root, width=1800, height=980, bg="gray20")
         self.canvas.pack(fill="both", expand=1)
 
+        self.root.bind("<Key>", self.key_press_handler)
+
         # self.canvas.bind_all("<B3-Motion>", self.on_canvas_motion)
 
         self.id_to_tk = {}
@@ -49,6 +51,10 @@ class Editor:
             # create edges
             for id in self.g:
                 self.add_edge_for_node(id)
+
+    def key_press_handler(self, event):
+        if event.keysym == 'Escape':
+            self.on_exit()
 
     def add_edge_for_node(self, id):
         N = self.g[id]
