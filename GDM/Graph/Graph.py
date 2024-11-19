@@ -1,7 +1,9 @@
 from ast import Call
-from typing import Callable, Set, Dict, List, Tuple
+from typing import Callable, Dict, List, Set, Tuple
+
 from .Edge import Edge
 from .Node import Node
+
 
 class Graph:
     def __init__(self):
@@ -94,6 +96,17 @@ class Graph:
         del self.edges[(src_node, tgt_node)]
 
     ##### Useful Functions
+    # WARNING: inefficient implementation, could be a lot smarter. Don't use if 
+    # you need something to run quickly
+    def incoming_edges(self, node_name: str) -> List[Edge]:
+        edges = []
+        for n in self.nodes:
+            key = (n, node_name)
+            if key in self.edges:
+                edges.append(self.edges[key])
+
+        return edges
+
     def neighbors(self, node_name: str) -> Set[str]:
         return self.nodes[node_name].neighbors
 

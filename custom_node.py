@@ -11,4 +11,3 @@ class CustomNode(Node):
     y: float
     rect_id: int
     reward_var: tk.DoubleVar
-    incoming_edges: Set[str]

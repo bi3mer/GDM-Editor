@@ -77,7 +77,6 @@ class Editor:
             y = y,
             rect_id = rect,
             reward_var=reward_var,
-            incoming_edges=set()
         )
 
         self.G.add_node(N)
@@ -96,15 +95,27 @@ class Editor:
             N.y = y1
 
             ## Update Edge coordinates
-            # for neighbor in self.nodes[id]["incoming_lines"]:
-            #     coords = self.canvas.coords(neighbor)
-            #     self.canvas.coords(neighbor, coords[0], coords[1], x1, y1 + NODE_HEIGHT / 2)
-            #
-            # for neighbor in self.nodes[id]["outgoing_lines"]:
-            #     coords = self.canvas.coords(neighbor)
-            #     self.canvas.coords(
-            #         neighbor, x1 + NODE_WIDTH, y1 + NODE_HEIGHT / 2, coords[2], coords[3]
-            #     )
+            # outgoing
+            for tgt in self.G.neighbors(node_name):
+                line_id = self.G.get_edge(node_name, tgt).line_id
+                coords = self.canvas.coords(line_id)
+                self.canvas.coords(
+                    line_id, 
+                    x1 + NODE_WIDTH, 
+                    y1 + NODE_HEIGHT / 2, 
+                    coords[2], 
+                    coords[3]
+                )
+
+            for edge in self.G.incoming_edges(node_name):
+                coords = self.canvas.coords(edge.line_id)
+                self.canvas.coords(
+                    edge.line_id, 
+                    coords[0],
+                    coords[1],
+                    x1,
+                    y1 + NODE_HEIGHT / 2
+                )
 
         self.canvas.tag_bind(
             rect,
@@ -140,11 +151,30 @@ class Editor:
                 line_id=line
             ))
 
+            ######
+            def remove_edge_event():
+                print('remove edge commented out')
+                # remove from the graphics
+                # self.canvas.delete()
+
+                # # remove from nodes
+                # for n in self.nodes:
+                #     N = self.nodes[n]
+                #     if line_id in N["outgoing_lines"]:
+                #         # remove from both the graph and the nodes internal represenation
+                #         index = N["outgoing_lines"].index(line_id)
+                #         N["outgoing_lines"].remove(line_id)
+                #         self.g[n]["neighbors"].remove(N['id'])
+                #
+                #     if line_id in N["incoming_lines"]:
+                #         N["incoming_lines"].remove(line_id)
+
+                # del self.edges[line_id]
+
             self.canvas.tag_bind(
-                line, "<Button-2>", lambda event: self.remove_edge_event(line)
+                line, "<Button-2>", lambda event: remove_edge_event()
             )
 
-            self.G.get_node(neighbor).incoming_edges.add(node_name)
 
     ############# TBD
 
@@ -152,23 +182,6 @@ class Editor:
         if event.keysym == 'Escape':
             self.on_exit()
 
-    def remove_edge_event(self, line_id):
-        # remove from the graphics
-        self.canvas.delete(line_id)
-
-        # remove from nodes
-        for n in self.nodes:
-            N = self.nodes[n]
-            if line_id in N["outgoing_lines"]:
-                # remove from both the graph and the nodes internal represenation
-                index = N["outgoing_lines"].index(line_id)
-                N["outgoing_lines"].remove(line_id)
-                self.g[n]["neighbors"].remove(N['id'])
-
-            if line_id in N["incoming_lines"]:
-                N["incoming_lines"].remove(line_id)
-
-        del self.edges[line_id]
 
     def start_drag(self, id, event):
         N = self.g[id]
