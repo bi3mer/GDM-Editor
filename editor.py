@@ -207,7 +207,7 @@ class Editor:
             line, "<Button-2>", lambda event: remove_edge_event()
         )
 
-    ############# TBD
+    ############# TKinter interactions that are not related to the Graph directly
     def key_press_handler(self, event):
         if event.keysym == 'Escape':
             self.on_exit()
@@ -216,15 +216,19 @@ class Editor:
         pass
         # self.canvas.yview_scroll(-1, "units")
 
-    def on_drag_node(self, event, node_name):
-        N: CustomNode = self.G.get_node(node_name)
-
-
     def on_exit(self):
-        print('Graph.json save currently disabled')
-        # print("saving graph before exiting :D")
-        # with open(join(self.working_dir, "graph.json"), "w") as f:
-        #     json.dump(self.g, f, indent=2)
+        data = {}
+        for node_name, N in self.G.nodes.items():
+            data[node_name] = {
+                "x": N.x,
+                "y": N.y,
+                "reward": N.reward,
+                "neighbors": list(N.neighbors)
+            } 
+
+        print("saving graph before exiting :D")
+        with open(join(self.working_dir, "graph.json"), "w") as f:
+            json.dump(data, f, indent=2)
 
         exit(0)
 
