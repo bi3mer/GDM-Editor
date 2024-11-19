@@ -8,7 +8,7 @@ from custom_edge import CustomEdge
 from custom_node import CustomNode
 from GDM.Graph import Graph
 
-NODE_WIDTH = 100
+NODE_WIDTH  = 60
 NODE_HEIGHT = 60
 
 
@@ -53,11 +53,11 @@ class Editor:
         x = node_values["x"]
         y = node_values["y"]
         rect = self.canvas.create_rectangle(
-            x, y, x + NODE_WIDTH, y + NODE_HEIGHT, fill="gray66", tags="all"
+            x, y, x + NODE_WIDTH, y + NODE_HEIGHT, fill="gray93", tags="all"
         )
 
         frame = tk.Frame(self.canvas)
-        frame.place(x=x, y=y)
+        frame.place(x=x+1, y=y+1)
 
         label = tk.Label(frame, text=node_name, width=5)
         label.pack()
@@ -77,7 +77,7 @@ class Editor:
         ## Add node to the graph
         N = CustomNode(
             name = node_name,
-            reward = reward_var.get(),
+            reward = 0,
             utility = 0,
             is_terminal=False,
             neighbors=set(),
@@ -93,30 +93,26 @@ class Editor:
 
         ## move nodes around
         def on_node_click(event):
-            self.scroll_x = event.x
-            self.scroll_y = event.y
-
+            self.scroll_x = event.x_root
+            self.scroll_y = event.y_root
 
         def on_node_drag(event):
-            dx = event.x - self.scroll_x
-            dy = event.y - self.scroll_y
+            dx = event.x_root - self.scroll_x
+            dy = event.y_root - self.scroll_y
         
             self.move_node(N, dx, dy)
 
-            self.scroll_x = event.x
-            self.scroll_y = event.y
+            self.scroll_x = event.x_root
+            self.scroll_y = event.y_root
 
-        self.canvas.tag_bind(
-            rect,
-            "<Button-1>",
-            lambda event: on_node_click(event),
-        )
+        self.canvas.tag_bind(rect, "<Button-1>", on_node_click)
+        self.canvas.tag_bind(rect, "<B1-Motion>", on_node_drag)
 
-        self.canvas.tag_bind(
-            rect,
-            "<B1-Motion>",
-            lambda event: on_node_drag(event),
-        )
+        label.bind("<Button-1>", on_node_click)
+        label.bind("<B1-Motion>", on_node_drag)
+
+        r.bind("<Button-1>", on_node_click)
+        r.bind("<B1-Motion>", on_node_drag)
 
         ## create edges between nodes
         # Start Drag Line
@@ -207,13 +203,6 @@ class Editor:
         if event.keysym == 'Escape':
             self.on_exit()
 
-    # def zoom(self, event):
-    #     x = self.canvas.canvasx(event.x)
-    #     y = self.canvas.canvasy(event.y)
-    #     factor = 1.001 ** event.delta
-    #
-    #     self.root.scale(tk.ALL, x, y, factor, factor)
-
     def scroll_start(self, event):
         self.scroll_x = event.x
         self.scroll_y = event.y
@@ -224,7 +213,7 @@ class Editor:
         self.canvas.itemconfig(n.rect_id, tags=("rect", "dragged"))
 
         x1, y1, _x2, _y2 = self.canvas.coords(n.rect_id)
-        n.frame.place(x=x1, y=y1)
+        n.frame.place(x=x1+1, y=y1+1)
         n.x = x1
         n.y = y1
 
@@ -269,7 +258,7 @@ class Editor:
             data[node_name] = {
                 "x": N.x,
                 "y": N.y,
-                "reward": N.reward,
+                "reward": N.reward_var.get(),
                 "neighbors": list(N.neighbors)
             } 
 
