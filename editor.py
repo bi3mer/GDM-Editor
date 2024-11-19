@@ -2,13 +2,14 @@ import json
 import os
 import sys
 import tkinter as tk
-from collections import namedtuple
 from os.path import join
+
+from custom_edge import CustomEdge
+from custom_node import CustomNode
+from GDM.Graph import Graph
 
 NODE_WIDTH = 100
 NODE_HEIGHT = 60
-
-Node = namedtuple("Node", ["rect", "frame"])
 
 
 class Editor:
@@ -26,63 +27,130 @@ class Editor:
 
         self.root.bind("<Key>", self.key_press_handler)
 
-        # self.canvas.bind_all("<B3-Motion>", self.on_canvas_motion)
+        ## Build the graph
+        self.G = Graph()
+        with open(join(working_dir, 'graph.json')) as f:
+            graph = json.load(f)
 
-        self.id_to_tk = {}
-        self.nodes = {}
-        with open(join(self.working_dir, "graph.json"), "r") as f:
-            self.g = json.load(f)
+            ## Create Nodes
+            for node_name, node_values in graph.items():
+                self.create_node(node_name, node_values)
 
-            # check segments directory for any new segments and add anode
-            for filename in os.listdir(join(self.working_dir, "segments")):
-                id = filename[:-4]  # remove .txt from end
-                if id not in self.g:
-                    self.g[id] = {
-                        "reward": 1000,
-                        "neighbors": [],
-                        "x": 0,
-                        "y": 0,
-                    }
+            ## Create Edges
+            for node_name, node_values in graph.items():
+                self.create_edges(node_name, node_values)
 
-            # nodes
-            for id in self.g:
-                self.add_node(id)
+    ############# Create
+    def create_node(self, node_name, node_values):
+        x = node_values["x"]
+        y = node_values["y"]
+        rect = self.canvas.create_rectangle(
+            x, y, x + NODE_WIDTH, y + NODE_HEIGHT, fill="gray66"
+        )
 
-            # create edges
-            for id in self.g:
-                self.add_edge_for_node(id)
+        frame = tk.Frame(self.root)
+        frame.place(x=x, y=y)
 
-    def key_press_handler(self, event):
-        if event.keysym == 'Escape':
-            self.on_exit()
+        label = tk.Label(frame, text=node_name, width=5)
+        label.pack()
 
-    def add_edge_for_node(self, id):
-        N = self.g[id]
-        x = N["x"]
-        y = N["y"]
+        def on_reward_change():
+            self.G.get_node(node_name).reward = reward_var.get()
 
-        def make_edge(neighbor):
-            _nodeNeighbor = self.g[neighbor]
+        reward_var = tk.DoubleVar()
+        reward_var.set(node_values["reward"])  # Initial width of the rectangle
+        reward_var.trace_add(
+            "write",
+            lambda _var, _index, _mode: on_reward_change,
+        )
+        r = tk.Entry(frame, textvariable=reward_var, width=3)
+        r.pack()
+
+        ## Add node to the graph
+        N = CustomNode(
+            name = node_name,
+            reward = reward_var.get(),
+            utility = 0,
+            is_terminal=False,
+            neighbors=set(),
+            x = x,
+            y = y,
+            rect_id = rect,
+            reward_var=reward_var,
+            incoming_edges=set()
+        )
+
+        self.G.add_node(N)
+
+        ## move nodes around
+        def on_drag_node(event):
+            ## Update rectangle placement
+            x1, y1, _x2, _y2 = self.canvas.coords(rect)
+            dx = event.x - x1
+            dy = event.y - y1
+            self.canvas.move(rect, dx, dy)
+            self.canvas.itemconfig(rect, tags=("rect", "dragged"))
+
+            frame.place(x=x1, y=y1)
+            N.x = x1
+            N.y = y1
+
+            ## Update Edge coordinates
+            # for neighbor in self.nodes[id]["incoming_lines"]:
+            #     coords = self.canvas.coords(neighbor)
+            #     self.canvas.coords(neighbor, coords[0], coords[1], x1, y1 + NODE_HEIGHT / 2)
+            #
+            # for neighbor in self.nodes[id]["outgoing_lines"]:
+            #     coords = self.canvas.coords(neighbor)
+            #     self.canvas.coords(
+            #         neighbor, x1 + NODE_WIDTH, y1 + NODE_HEIGHT / 2, coords[2], coords[3]
+            #     )
+
+        self.canvas.tag_bind(
+            rect,
+            "<B1-Motion>",
+            lambda event: on_drag_node(event),
+        )
+
+        # create edges between nodes
+        self.canvas.tag_bind(rect, "<ButtonPress-2>", lambda e: self.start_drag(id, e))
+        self.canvas.tag_bind(rect, "<B2-Motion>", lambda e: self.dragging(id, e))
+        self.canvas.tag_bind(rect, "<ButtonRelease-2>", lambda e: self.end_drag(id, e))
+
+    def create_edges(self, node_name, node_values):
+        N: CustomNode = self.G.get_node(node_name)
+
+        for neighbor in node_values["neighbors"]:
+            _nodeNeighbor: CustomNode = self.G.get_node(neighbor)
 
             line = self.canvas.create_line(
-                x + NODE_WIDTH,
-                y + NODE_HEIGHT / 2,
-                _nodeNeighbor["x"],
-                _nodeNeighbor["y"] + NODE_HEIGHT / 2,
+                N.x + NODE_WIDTH,
+                N.y + NODE_HEIGHT / 2,
+                _nodeNeighbor.x,
+                _nodeNeighbor.y + NODE_HEIGHT / 2,
                 width=2,
                 fill="yellow",
                 arrow=tk.LAST,
             )
 
+            self.G.add_edge(CustomEdge(
+                src=node_name,
+                tgt=neighbor,
+                probability=[],
+                line_id=line
+            ))
+
             self.canvas.tag_bind(
                 line, "<Button-2>", lambda event: self.remove_edge_event(line)
             )
 
-            self.nodes[id]["outgoing_lines"].append(line)
-            self.nodes[neighbor]["incoming_lines"].append(line)
+            self.G.get_node(neighbor).incoming_edges.add(node_name)
 
-        for neighbor in self.g[id]["neighbors"]:
-            make_edge(neighbor)
+    ############# TBD
+
+    def key_press_handler(self, event):
+        if event.keysym == 'Escape':
+            self.on_exit()
 
     def remove_edge_event(self, line_id):
         # remove from the graphics
@@ -95,55 +163,12 @@ class Editor:
                 # remove from both the graph and the nodes internal represenation
                 index = N["outgoing_lines"].index(line_id)
                 N["outgoing_lines"].remove(line_id)
-                self.g[n]["neighbors"].pop(index)
+                self.g[n]["neighbors"].remove(N['id'])
 
             if line_id in N["incoming_lines"]:
                 N["incoming_lines"].remove(line_id)
 
-    def add_node(self, id):
-        N = self.g[id]
-        x = N["x"]
-        y = N["y"]
-        rect = self.canvas.create_rectangle(
-            x, y, x + NODE_WIDTH, y + NODE_HEIGHT, fill="gray66"
-        )
-
-        frame = tk.Frame(self.root)
-        frame.place(x=x, y=y)
-
-        label = tk.Label(frame, text=id, width=5)
-        label.pack()
-
-        reward_var = tk.DoubleVar()
-        reward_var.set(N["reward"])  # Initial width of the rectangle
-        reward_var.trace_add(
-            "write",
-            lambda _var, _index, _mode: self.on_reward_change(id, reward_var.get()),
-        )
-        r = tk.Entry(frame, textvariable=reward_var, width=3)
-        r.pack()
-
-        self.id_to_tk[id] = Node(rect, frame)
-
-        self.nodes[id] = {
-            "rect": rect,
-            "reward": reward_var,
-            "frame": frame,
-            "outgoing_lines": [],
-            "incoming_lines": [],
-        }
-
-        # move nodes around
-        self.canvas.tag_bind(
-            rect,
-            "<B1-Motion>",
-            lambda event: self.on_drag(event, id),
-        )
-
-        # create edges between nodes
-        self.canvas.tag_bind(rect, "<ButtonPress-2>", lambda e: self.start_drag(id, e))
-        self.canvas.tag_bind(rect, "<B2-Motion>", lambda e: self.dragging(id, e))
-        self.canvas.tag_bind(rect, "<ButtonRelease-2>", lambda e: self.end_drag(id, e))
+        del self.edges[line_id]
 
     def start_drag(self, id, event):
         N = self.g[id]
@@ -203,44 +228,19 @@ class Editor:
             # no connection found
             self.canvas.delete(self.drag_line)
 
-    def on_reward_change(self, id, val):
-        try:
-            self.g[id]["reward"] = float(val)
-        except:
-            print(f"Invalid value: {val}")
-
     def on_canvas_motion(self, event):
         pass
         # self.canvas.yview_scroll(-1, "units")
 
-    def on_drag(self, event, id):
-        N = self.nodes[id]
-        RECT = N["rect"]
+    def on_drag_node(self, event, node_name):
+        N: CustomNode = self.G.get_node(node_name)
 
-        x1, y1, _x2, _y2 = self.canvas.coords(RECT)
-        dx = event.x - x1
-        dy = event.y - y1
-        self.canvas.move(RECT, dx, dy)
-        self.canvas.itemconfig(RECT, tags=("rect", "dragged"))
-
-        N["frame"].place(x=x1, y=y1)
-        self.g[id]["x"] = x1
-        self.g[id]["y"] = y1
-
-        for neighbor in self.nodes[id]["incoming_lines"]:
-            coords = self.canvas.coords(neighbor)
-            self.canvas.coords(neighbor, coords[0], coords[1], x1, y1 + NODE_HEIGHT / 2)
-
-        for neighbor in self.nodes[id]["outgoing_lines"]:
-            coords = self.canvas.coords(neighbor)
-            self.canvas.coords(
-                neighbor, x1 + NODE_WIDTH, y1 + NODE_HEIGHT / 2, coords[2], coords[3]
-            )
 
     def on_exit(self):
-        print("saving graph before exiting :D")
-        with open(join(self.working_dir, "graph.json"), "w") as f:
-            json.dump(self.g, f, indent=2)
+        print('Graph.json save currently disabled')
+        # print("saving graph before exiting :D")
+        # with open(join(self.working_dir, "graph.json"), "w") as f:
+        #     json.dump(self.g, f, indent=2)
 
         exit(0)
 
