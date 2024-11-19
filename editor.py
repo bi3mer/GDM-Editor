@@ -26,6 +26,7 @@ class Editor:
         self.canvas.pack(fill="both", expand=1)
 
         self.root.bind("<Key>", self.key_press_handler)
+        self.drag_line = 0
 
         ## Build the graph
         self.G = Graph()
@@ -38,7 +39,8 @@ class Editor:
 
             ## Create Edges
             for node_name, node_values in graph.items():
-                self.create_edges(node_name, node_values)
+                for neighbor in node_values["neighbors"]:
+                    self.create_edge(node_name, neighbor)
 
     ############# Create
     def create_node(self, node_name, node_values):
@@ -123,123 +125,92 @@ class Editor:
             lambda event: on_drag_node(event),
         )
 
-        # create edges between nodes
-        self.canvas.tag_bind(rect, "<ButtonPress-2>", lambda e: self.start_drag(id, e))
-        self.canvas.tag_bind(rect, "<B2-Motion>", lambda e: self.dragging(id, e))
-        self.canvas.tag_bind(rect, "<ButtonRelease-2>", lambda e: self.end_drag(id, e))
-
-    def create_edges(self, node_name, node_values):
-        N: CustomNode = self.G.get_node(node_name)
-
-        for neighbor in node_values["neighbors"]:
-            _nodeNeighbor: CustomNode = self.G.get_node(neighbor)
-
-            line = self.canvas.create_line(
+        ## create edges between nodes
+        # Start Drag Line
+        def start_drag(event):
+            self.drag_line = self.canvas.create_line(
                 N.x + NODE_WIDTH,
                 N.y + NODE_HEIGHT / 2,
-                _nodeNeighbor.x,
-                _nodeNeighbor.y + NODE_HEIGHT / 2,
+                event.x,
+                event.y,
                 width=2,
                 fill="yellow",
                 arrow=tk.LAST,
             )
+        
+        self.canvas.tag_bind(rect, "<ButtonPress-2>", lambda e: start_drag(e))
 
-            self.G.add_edge(CustomEdge(
-                src=node_name,
-                tgt=neighbor,
-                probability=[],
-                line_id=line
-            ))
+        # Line follows the user's cursor
+        def dragging(event):
+            coords = self.canvas.coords(self.drag_line)
+            self.canvas.coords(self.drag_line, coords[0], coords[1], event.x, event.y)
 
-            ######
-            def remove_edge_event():
-                print('remove edge commented out')
-                # remove from the graphics
-                # self.canvas.delete()
-
-                # # remove from nodes
-                # for n in self.nodes:
-                #     N = self.nodes[n]
-                #     if line_id in N["outgoing_lines"]:
-                #         # remove from both the graph and the nodes internal represenation
-                #         index = N["outgoing_lines"].index(line_id)
-                #         N["outgoing_lines"].remove(line_id)
-                #         self.g[n]["neighbors"].remove(N['id'])
-                #
-                #     if line_id in N["incoming_lines"]:
-                #         N["incoming_lines"].remove(line_id)
-
-                # del self.edges[line_id]
-
-            self.canvas.tag_bind(
-                line, "<Button-2>", lambda event: remove_edge_event()
+        self.canvas.tag_bind(rect, "<B2-Motion>", lambda e: dragging(e))
+        
+        # End Drag Line
+        def end_drag(event):
+            coords = self.canvas.coords(self.drag_line)
+            overlapping = self.canvas.find_overlapping(
+                coords[2], coords[3], coords[2] + 10, coords[3] + 10
             )
 
+            if len(overlapping) == 2:
+                # found connection
+                tgt_node_tkid = (
+                    overlapping[0] if overlapping[0] != self.drag_line else overlapping[1]
+                )
 
-    ############# TBD
+                tgt_id = "1-a"
+                for n in self.G.nodes:
+                    if self.G.nodes[n].rect_id == tgt_node_tkid:
+                        tgt_id = n
+                        break
 
-    def key_press_handler(self, event):
-        if event.keysym == 'Escape':
-            self.on_exit()
+                neighbor = self.G.nodes[tgt_id]
+               
+                # cannot connect to self and cannot add duplicate edges
+                if tgt_id != node_name and tgt_id not in N.neighbors:
+                    self.create_edge(node_name, tgt_id)
+        
+            # Delet the drag line regardless
+            self.canvas.delete(self.drag_line)
 
+        self.canvas.tag_bind(rect, "<ButtonRelease-2>", lambda e: end_drag(e))
 
-    def start_drag(self, id, event):
-        N = self.g[id]
-        self.drag_id = id
-        self.drag_line = self.canvas.create_line(
-            N["x"] + NODE_WIDTH,
-            N["y"] + NODE_HEIGHT / 2,
-            event.x,
-            event.y,
+    def create_edge(self, src, tgt):
+        N_src: CustomNode = self.G.get_node(src)
+        N_tgt: CustomNode = self.G.get_node(tgt)
+        
+        line = self.canvas.create_line(
+            N_src.x + NODE_WIDTH,
+            N_src.y + NODE_HEIGHT / 2,
+            N_tgt.x,
+            N_tgt.y + NODE_HEIGHT / 2,
             width=2,
             fill="yellow",
             arrow=tk.LAST,
         )
 
-    def dragging(self, id, event):
-        coords = self.canvas.coords(self.drag_line)
-        self.canvas.coords(self.drag_line, coords[0], coords[1], event.x, event.y)
+        self.G.add_edge(CustomEdge(
+            src=src,
+            tgt=tgt,
+            probability=[],
+            line_id=line
+        ))
 
-    def end_drag(self, id, event):
-        coords = self.canvas.coords(self.drag_line)
-        overlapping = self.canvas.find_overlapping(
-            coords[2], coords[3], coords[2] + 10, coords[3] + 10
+        ## Remove Edge
+        def remove_edge_event():
+            self.canvas.delete(line)
+            self.G.remove_edge(src, tgt)
+
+        self.canvas.tag_bind(
+            line, "<Button-2>", lambda event: remove_edge_event()
         )
 
-        if len(overlapping) == 2:
-            # found connection
-            tgt_node_tkid = (
-                overlapping[0] if overlapping[0] != self.drag_line else overlapping[1]
-            )
-
-            tgt_id = "1-a"
-            for n in self.g:
-                if self.nodes[n]["rect"] == tgt_node_tkid:
-                    tgt_id = n
-                    break
-
-            # Set position of the line
-            if tgt_id == id or tgt_id in self.g[id]["neighbors"]:
-                self.canvas.delete(self.drag_line)
-            else:
-                tgt_ng = self.g[tgt_id]
-                self.canvas.coords(
-                    self.drag_line,
-                    coords[0],
-                    coords[1],
-                    tgt_ng["x"],
-                    tgt_ng["y"] + NODE_HEIGHT / 2,
-                )
-
-                # add to internal data structuresi
-                self.g[self.drag_id]["neighbors"].append(tgt_id)
-
-                tgt_nn = self.nodes[tgt_id]
-                tgt_nn["incoming_lines"].append(self.drag_id)
-                self.nodes[self.drag_id]["outgoing_lines"].append(tgt_id)
-        else:
-            # no connection found
-            self.canvas.delete(self.drag_line)
+    ############# TBD
+    def key_press_handler(self, event):
+        if event.keysym == 'Escape':
+            self.on_exit()
 
     def on_canvas_motion(self, event):
         pass
