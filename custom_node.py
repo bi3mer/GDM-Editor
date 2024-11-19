@@ -11,3 +11,5 @@ class CustomNode(Node):
     y: float
     rect_id: int
     reward_var: tk.DoubleVar
+    frame: tk.Frame
+    entry: tk.Entry

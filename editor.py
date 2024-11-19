@@ -26,6 +26,12 @@ class Editor:
         self.canvas.pack(fill="both", expand=1)
 
         self.root.bind("<Key>", self.key_press_handler)
+      
+        self.scroll_x = 0
+        self.scroll_y = 0
+        self.root.bind("<Button-3>", self.scroll_start)
+        self.root.bind("<B3-Motion>", self.scroll)
+        # self.root.bind("<MouseWheel>", self.zoom)
         self.drag_line = 0
 
         ## Build the graph
@@ -47,10 +53,10 @@ class Editor:
         x = node_values["x"]
         y = node_values["y"]
         rect = self.canvas.create_rectangle(
-            x, y, x + NODE_WIDTH, y + NODE_HEIGHT, fill="gray66"
+            x, y, x + NODE_WIDTH, y + NODE_HEIGHT, fill="gray66", tags="all"
         )
 
-        frame = tk.Frame(self.root)
+        frame = tk.Frame(self.canvas)
         frame.place(x=x, y=y)
 
         label = tk.Label(frame, text=node_name, width=5)
@@ -79,50 +85,37 @@ class Editor:
             y = y,
             rect_id = rect,
             reward_var=reward_var,
+            frame = frame, 
+            entry = r
         )
 
         self.G.add_node(N)
 
         ## move nodes around
-        def on_drag_node(event):
-            ## Update rectangle placement
-            x1, y1, _x2, _y2 = self.canvas.coords(rect)
-            dx = event.x - x1
-            dy = event.y - y1
-            self.canvas.move(rect, dx, dy)
-            self.canvas.itemconfig(rect, tags=("rect", "dragged"))
+        def on_node_click(event):
+            self.scroll_x = event.x
+            self.scroll_y = event.y
 
-            frame.place(x=x1, y=y1)
-            N.x = x1
-            N.y = y1
 
-            ## Update Edge coordinates
-            # outgoing
-            for tgt in self.G.neighbors(node_name):
-                line_id = self.G.get_edge(node_name, tgt).line_id
-                coords = self.canvas.coords(line_id)
-                self.canvas.coords(
-                    line_id, 
-                    x1 + NODE_WIDTH, 
-                    y1 + NODE_HEIGHT / 2, 
-                    coords[2], 
-                    coords[3]
-                )
+        def on_node_drag(event):
+            dx = event.x - self.scroll_x
+            dy = event.y - self.scroll_y
+        
+            self.move_node(N, dx, dy)
 
-            for edge in self.G.incoming_edges(node_name):
-                coords = self.canvas.coords(edge.line_id)
-                self.canvas.coords(
-                    edge.line_id, 
-                    coords[0],
-                    coords[1],
-                    x1,
-                    y1 + NODE_HEIGHT / 2
-                )
+            self.scroll_x = event.x
+            self.scroll_y = event.y
+
+        self.canvas.tag_bind(
+            rect,
+            "<Button-1>",
+            lambda event: on_node_click(event),
+        )
 
         self.canvas.tag_bind(
             rect,
             "<B1-Motion>",
-            lambda event: on_drag_node(event),
+            lambda event: on_node_drag(event),
         )
 
         ## create edges between nodes
@@ -136,6 +129,7 @@ class Editor:
                 width=2,
                 fill="yellow",
                 arrow=tk.LAST,
+                tags="all"
             )
         
         self.canvas.tag_bind(rect, "<ButtonPress-2>", lambda e: start_drag(e))
@@ -189,6 +183,7 @@ class Editor:
             width=2,
             fill="yellow",
             arrow=tk.LAST,
+            tags="all"
         )
 
         self.G.add_edge(CustomEdge(
@@ -212,9 +207,61 @@ class Editor:
         if event.keysym == 'Escape':
             self.on_exit()
 
-    def on_canvas_motion(self, event):
-        pass
-        # self.canvas.yview_scroll(-1, "units")
+    # def zoom(self, event):
+    #     x = self.canvas.canvasx(event.x)
+    #     y = self.canvas.canvasy(event.y)
+    #     factor = 1.001 ** event.delta
+    #
+    #     self.root.scale(tk.ALL, x, y, factor, factor)
+
+    def scroll_start(self, event):
+        self.scroll_x = event.x
+        self.scroll_y = event.y
+
+    def move_node(self, n: CustomNode, dx: float, dy: float):
+        ## Update rectangle placement
+        self.canvas.move(n.rect_id, dx, dy)
+        self.canvas.itemconfig(n.rect_id, tags=("rect", "dragged"))
+
+        x1, y1, _x2, _y2 = self.canvas.coords(n.rect_id)
+        n.frame.place(x=x1, y=y1)
+        n.x = x1
+        n.y = y1
+
+        ## Update Edge coordinates
+        # outgoing
+        for tgt in n.neighbors:
+            line_id = self.G.get_edge(n.name, tgt).line_id
+            coords = self.canvas.coords(line_id)
+            self.canvas.coords(
+                line_id, 
+                x1 + NODE_WIDTH, 
+                y1 + NODE_HEIGHT / 2, 
+                coords[2], 
+                coords[3]
+            )
+        #
+        for edge in self.G.incoming_edges(n.name):
+            coords = self.canvas.coords(edge.line_id)
+            self.canvas.coords(
+                edge.line_id, 
+                coords[0],
+                coords[1],
+                x1,
+                y1 + NODE_HEIGHT / 2
+            )
+
+
+    def scroll(self, event):
+        dx = event.x - self.scroll_x
+        dy = event.y - self.scroll_y
+
+        for N in self.G.nodes.values():
+            self.move_node(N, dx, dy)
+
+        self.scroll_x = event.x
+        self.scroll_y = event.y
+
 
     def on_exit(self):
         data = {}
