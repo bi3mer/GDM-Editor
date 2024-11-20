@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import tkinter as tk
+from math import ceil
 from os.path import join
 
 from custom_edge import CustomEdge
@@ -27,17 +28,20 @@ class Editor:
 
         self.root.bind("<Key>", self.key_press_handler)
       
+        self.drag_line = 0
         self.scroll_x = 0
         self.scroll_y = 0
         self.root.bind("<Button-3>", self.scroll_start)
         self.root.bind("<B3-Motion>", self.scroll)
-        # self.root.bind("<MouseWheel>", self.zoom)
-        self.drag_line = 0
+
+        self.root.bind("<MouseWheel>", self.on_scale)
 
         ## Build the graph
         self.G = Graph()
         with open(join(working_dir, 'graph.json')) as f:
-            graph = json.load(f)
+            data = json.load(f)
+            self.scale: float = data['scale']
+            graph = data['graph']
 
             ## Create Nodes
             for node_name, node_values in graph.items():
@@ -53,13 +57,21 @@ class Editor:
         x = node_values["x"]
         y = node_values["y"]
         rect = self.canvas.create_rectangle(
-            x, y, x + NODE_WIDTH, y + NODE_HEIGHT, fill="gray93", tags="all"
+            x * self.scale, 
+            y * self.scale, 
+            (x + NODE_WIDTH) * self.scale, 
+            (y + NODE_HEIGHT)*self.scale, 
+            fill="gray93", 
+            tags="all"
         )
 
         frame = tk.Frame(self.canvas)
-        frame.place(x=x+1, y=y+1)
+        frame.place(
+            x = x * self.scale + self.scale, 
+            y = y * self.scale + self.scale
+        )
 
-        label = tk.Label(frame, text=node_name, width=5)
+        label = tk.Label(frame, text=node_name, width=ceil(5*self.scale))
         label.pack()
 
         def on_reward_change():
@@ -71,7 +83,7 @@ class Editor:
             "write",
             lambda _var, _index, _mode: on_reward_change,
         )
-        r = tk.Entry(frame, textvariable=reward_var, width=3)
+        r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale))
         r.pack()
 
         ## Add node to the graph
@@ -115,33 +127,42 @@ class Editor:
         r.bind("<B1-Motion>", on_node_drag)
 
         ## create edges between nodes
+        def y_mod():
+            return 
+
+            # return -NODE_WIDTH * self.scale
         # Start Drag Line
         def start_drag(event):
             self.drag_line = self.canvas.create_line(
-                N.x + NODE_WIDTH,
-                N.y + NODE_HEIGHT / 2,
-                event.x,
-                event.y,
-                width=2,
+                (N.x + NODE_WIDTH) * self.scale,
+                (N.y + NODE_HEIGHT / 2) * self.scale,
+                event.x_root,
+                event.y_root - (NODE_HEIGHT * self.scale),
+                width=2*self.scale,
                 fill="yellow",
                 arrow=tk.LAST,
                 tags="all"
             )
         
-        self.canvas.tag_bind(rect, "<ButtonPress-2>", lambda e: start_drag(e))
-
         # Line follows the user's cursor
         def dragging(event):
             coords = self.canvas.coords(self.drag_line)
-            self.canvas.coords(self.drag_line, coords[0], coords[1], event.x, event.y)
-
-        self.canvas.tag_bind(rect, "<B2-Motion>", lambda e: dragging(e))
+            self.canvas.coords(
+                self.drag_line, 
+                coords[0], 
+                coords[1], 
+                event.x_root, 
+                event.y_root - (NODE_HEIGHT * self.scale)
+            )
         
         # End Drag Line
         def end_drag(event):
             coords = self.canvas.coords(self.drag_line)
             overlapping = self.canvas.find_overlapping(
-                coords[2], coords[3], coords[2] + 10, coords[3] + 10
+                coords[2], 
+                coords[3], 
+                coords[2] + 10*self.scale, 
+                coords[3] + 10*self.scale
             )
 
             if len(overlapping) == 2:
@@ -165,17 +186,28 @@ class Editor:
             # Delet the drag line regardless
             self.canvas.delete(self.drag_line)
 
-        self.canvas.tag_bind(rect, "<ButtonRelease-2>", lambda e: end_drag(e))
+        self.canvas.tag_bind(rect, "<ButtonPress-2>", start_drag)
+        self.canvas.tag_bind(rect, "<B2-Motion>", dragging)
+        self.canvas.tag_bind(rect, "<ButtonRelease-2>", end_drag)
+        
+        label.bind("<ButtonPress-2>", start_drag)
+        label.bind("<B2-Motion>", dragging)
+        label.bind("<ButtonRelease-2>", end_drag)
+        
+        r.bind("<ButtonPress-2>", start_drag)
+        r.bind("<B2-Motion>", dragging)
+        r.bind("<ButtonRelease-2>", end_drag)
+        
 
     def create_edge(self, src, tgt):
         N_src: CustomNode = self.G.get_node(src)
         N_tgt: CustomNode = self.G.get_node(tgt)
         
         line = self.canvas.create_line(
-            N_src.x + NODE_WIDTH,
-            N_src.y + NODE_HEIGHT / 2,
-            N_tgt.x,
-            N_tgt.y + NODE_HEIGHT / 2,
+            (N_src.x + NODE_WIDTH) * self.scale,
+            (N_src.y + NODE_HEIGHT / 2) * self.scale,
+            N_tgt.x * self.scale,
+            (N_tgt.y + NODE_HEIGHT / 2) * self.scale,
             width=2,
             fill="yellow",
             arrow=tk.LAST,
@@ -213,9 +245,9 @@ class Editor:
         self.canvas.itemconfig(n.rect_id, tags=("rect", "dragged"))
 
         x1, y1, _x2, _y2 = self.canvas.coords(n.rect_id)
-        n.frame.place(x=x1+1, y=y1+1)
-        n.x = x1
-        n.y = y1
+        n.frame.place(x=x1+self.scale, y=y1+self.scale)
+        n.x += dx
+        n.y += dy
 
         ## Update Edge coordinates
         # outgoing
@@ -224,8 +256,8 @@ class Editor:
             coords = self.canvas.coords(line_id)
             self.canvas.coords(
                 line_id, 
-                x1 + NODE_WIDTH, 
-                y1 + NODE_HEIGHT / 2, 
+                x1 + NODE_WIDTH * self.scale, 
+                y1 + NODE_HEIGHT / 2 * self.scale, 
                 coords[2], 
                 coords[3]
             )
@@ -237,9 +269,8 @@ class Editor:
                 coords[0],
                 coords[1],
                 x1,
-                y1 + NODE_HEIGHT / 2
+                y1 + NODE_HEIGHT / 2 * self.scale
             )
-
 
     def scroll(self, event):
         dx = event.x - self.scroll_x
@@ -251,17 +282,69 @@ class Editor:
         self.scroll_x = event.x
         self.scroll_y = event.y
 
+    def on_scale(self, event):
+        delta = 1 if event.delta >= 0 else -1
+        self.scale = min(1.0, max(0.1, self.scale + 0.01*delta))
+
+        n: CustomNode
+        for n in self.G.nodes.values():
+            ## Update Node
+            # rectangle
+            self.canvas.coords(
+                n.rect_id,
+                n.x * self.scale,
+                n.y * self.scale,
+                (n.x + NODE_WIDTH) * self.scale,
+                (n.y + NODE_HEIGHT) * self.scale
+            )
+
+            # frame
+            n.frame.place(
+                x = (n.x + 1) * self.scale,
+                y = (n.y + 1) * self.scale
+            )
+
+            # entry
+            n.entry.config(width=ceil(3*self.scale))
+
+            ## Update Edge coordinates
+            # outgoing
+            for tgt in n.neighbors:
+                line_id = self.G.get_edge(n.name, tgt).line_id
+                coords = self.canvas.coords(line_id)
+                self.canvas.coords(
+                    line_id, 
+                    (n.x + NODE_WIDTH) * self.scale, 
+                    (n.y + NODE_HEIGHT / 2) * self.scale, 
+                    coords[2] , 
+                    coords[3]  
+                )
+
+            for edge in self.G.incoming_edges(n.name):
+                coords = self.canvas.coords(edge.line_id)
+                self.canvas.coords(
+                    edge.line_id, 
+                    coords[0],
+                    coords[1],
+                    n.x * self.scale,
+                    (n.y + NODE_HEIGHT / 2) * self.scale
+                )
 
     def on_exit(self):
-        data = {}
+        data = {
+            "scale": self.scale,
+        }
+        graph = {}
+
         for node_name, N in self.G.nodes.items():
-            data[node_name] = {
+            graph[node_name] = {
                 "x": N.x,
                 "y": N.y,
                 "reward": N.reward_var.get(),
                 "neighbors": list(N.neighbors)
             } 
 
+        data['graph'] = graph
         print("saving graph before exiting :D")
         with open(join(self.working_dir, "graph.json"), "w") as f:
             json.dump(data, f, indent=2)
