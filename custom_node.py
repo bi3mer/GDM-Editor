@@ -13,3 +13,4 @@ class CustomNode(Node):
     reward_var: tk.DoubleVar
     frame: tk.Frame
     entry: tk.Entry
+    level: str

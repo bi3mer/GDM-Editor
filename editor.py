@@ -23,9 +23,6 @@ class Editor:
         self.root = root
         self.root.title("Level Graph Editor")
 
-        self.canvas = tk.Canvas(self.root, width=1800, height=980, bg="gray20")
-        self.canvas.pack(fill="both", expand=1)
-
         self.root.bind("<Key>", self.key_press_handler)
       
         self.drag_line = 0
@@ -35,6 +32,10 @@ class Editor:
         self.root.bind("<B3-Motion>", self.scroll)
 
         self.root.bind("<MouseWheel>", self.on_scale)
+       
+        self.canvas = tk.Canvas(self.root, width=1800, height=980, bg="gray20")
+        self.canvas.pack(fill="both", expand=1)
+        
 
         ## Build the graph
         self.G = Graph()
@@ -51,6 +52,14 @@ class Editor:
             for node_name, node_values in graph.items():
                 for neighbor in node_values["neighbors"]:
                     self.create_edge(node_name, neighbor)
+        
+        # preview box
+        self.preview_frame = tk.Frame(self.canvas)
+        self.preview_frame.place(x=-1000, y=-1000) # off screen
+        
+        self.preview_label = tk.Label(self.preview_frame, width = 32, height=17, font="TkFixedFont")
+        self.preview_label.pack()
+        # self.label = tk.Label(self.canvas, width=32, height=16, font="TkFixedFont")
 
     ############# Create
     def create_node(self, node_name, node_values):
@@ -86,6 +95,9 @@ class Editor:
         r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale))
         r.pack()
 
+        with open(join(self.working_dir, 'segments', f'{node_name}.txt')) as f:
+            level = f.read()
+
         ## Add node to the graph
         N = CustomNode(
             name = node_name,
@@ -98,7 +110,8 @@ class Editor:
             rect_id = rect,
             reward_var=reward_var,
             frame = frame, 
-            entry = r
+            entry = r,
+            level = level
         )
 
         self.G.add_node(N)
@@ -112,7 +125,7 @@ class Editor:
             dx = event.x_root - self.scroll_x
             dy = event.y_root - self.scroll_y
         
-            self.move_node(N, dx, dy)
+            self.update_node(N, dx, dy)
 
             self.scroll_x = event.x_root
             self.scroll_y = event.y_root
@@ -193,6 +206,23 @@ class Editor:
         r.bind("<ButtonPress-2>", start_drag)
         r.bind("<B2-Motion>", dragging)
         r.bind("<ButtonRelease-2>", end_drag)
+
+        ## On Hover
+        def on_enter(event):
+            self.preview_label.config(text=N.level)
+            self.preview_frame.place(x=N.x + (NODE_WIDTH + 1) * self.scale, y=N.y)
+        
+        def on_exit(event):
+            self.preview_frame.place(x=-1000, y=-1000)
+
+        self.canvas.tag_bind(rect, '<Enter>', on_enter)
+        self.canvas.tag_bind(rect, '<Leave>', on_exit)
+    
+        r.bind('<Enter>', on_enter)
+        r.bind('<Leave>', on_exit)
+        
+        label.bind('<Enter>', on_enter)
+        label.bind('<Leave>', on_exit)
         
 
     def create_edge(self, src, tgt):
