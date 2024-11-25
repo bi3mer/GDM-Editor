@@ -127,10 +127,6 @@ class Editor:
         r.bind("<B1-Motion>", on_node_drag)
 
         ## create edges between nodes
-        def y_mod():
-            return 
-
-            # return -NODE_WIDTH * self.scale
         # Start Drag Line
         def start_drag(event):
             self.drag_line = self.canvas.create_line(
@@ -239,37 +235,57 @@ class Editor:
         self.scroll_x = event.x
         self.scroll_y = event.y
 
-    def move_node(self, n: CustomNode, dx: float, dy: float):
+    def update_node(self, n: CustomNode, dx: float, dy: float):
         ## Update rectangle placement
         self.canvas.move(n.rect_id, dx, dy)
         self.canvas.itemconfig(n.rect_id, tags=("rect", "dragged"))
 
         x1, y1, _x2, _y2 = self.canvas.coords(n.rect_id)
-        n.frame.place(x=x1+self.scale, y=y1+self.scale)
+        # n.frame.place(x=x1+self.scale, y=y1+self.scale)
         n.x += dx
         n.y += dy
 
+
+        # rectangle
+        self.canvas.coords(
+            n.rect_id,
+            n.x * self.scale,
+            n.y * self.scale,
+            (n.x + NODE_WIDTH) * self.scale,
+            (n.y + NODE_HEIGHT) * self.scale
+        )
+
+        # frame
+        n.frame.place(
+            x = (n.x + 1) * self.scale,
+            y = (n.y + 1) * self.scale
+        )
+
+        # entry
+        n.entry.config(width=ceil(3*self.scale))
+
         ## Update Edge coordinates
-        # outgoing
+        # incoming
         for tgt in n.neighbors:
             line_id = self.G.get_edge(n.name, tgt).line_id
             coords = self.canvas.coords(line_id)
             self.canvas.coords(
                 line_id, 
-                x1 + NODE_WIDTH * self.scale, 
-                y1 + NODE_HEIGHT / 2 * self.scale, 
-                coords[2], 
-                coords[3]
+                (n.x + NODE_WIDTH) * self.scale, 
+                (n.y + NODE_HEIGHT / 2) * self.scale, 
+                coords[2] , 
+                coords[3]  
             )
-        #
+
+        # outgoing
         for edge in self.G.incoming_edges(n.name):
             coords = self.canvas.coords(edge.line_id)
             self.canvas.coords(
                 edge.line_id, 
                 coords[0],
                 coords[1],
-                x1,
-                y1 + NODE_HEIGHT / 2 * self.scale
+                n.x * self.scale,
+                (n.y + NODE_HEIGHT / 2) * self.scale
             )
 
     def scroll(self, event):
@@ -277,7 +293,7 @@ class Editor:
         dy = event.y - self.scroll_y
 
         for N in self.G.nodes.values():
-            self.move_node(N, dx, dy)
+            self.update_node(N, dx, dy)
 
         self.scroll_x = event.x
         self.scroll_y = event.y
@@ -288,47 +304,7 @@ class Editor:
 
         n: CustomNode
         for n in self.G.nodes.values():
-            ## Update Node
-            # rectangle
-            self.canvas.coords(
-                n.rect_id,
-                n.x * self.scale,
-                n.y * self.scale,
-                (n.x + NODE_WIDTH) * self.scale,
-                (n.y + NODE_HEIGHT) * self.scale
-            )
-
-            # frame
-            n.frame.place(
-                x = (n.x + 1) * self.scale,
-                y = (n.y + 1) * self.scale
-            )
-
-            # entry
-            n.entry.config(width=ceil(3*self.scale))
-
-            ## Update Edge coordinates
-            # outgoing
-            for tgt in n.neighbors:
-                line_id = self.G.get_edge(n.name, tgt).line_id
-                coords = self.canvas.coords(line_id)
-                self.canvas.coords(
-                    line_id, 
-                    (n.x + NODE_WIDTH) * self.scale, 
-                    (n.y + NODE_HEIGHT / 2) * self.scale, 
-                    coords[2] , 
-                    coords[3]  
-                )
-
-            for edge in self.G.incoming_edges(n.name):
-                coords = self.canvas.coords(edge.line_id)
-                self.canvas.coords(
-                    edge.line_id, 
-                    coords[0],
-                    coords[1],
-                    n.x * self.scale,
-                    (n.y + NODE_HEIGHT / 2) * self.scale
-                )
+            self.update_node(n, 0, 0)
 
     def on_exit(self):
         data = {
