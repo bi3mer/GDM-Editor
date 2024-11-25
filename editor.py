@@ -210,7 +210,7 @@ class Editor:
         ## On Hover
         def on_enter(event):
             self.preview_label.config(text=N.level)
-            self.preview_frame.place(x=N.x + (NODE_WIDTH + 1) * self.scale, y=N.y)
+            self.preview_frame.place(x=(N.x + NODE_WIDTH + 1) * self.scale, y=N.y*self.scale)
         
         def on_exit(event):
             self.preview_frame.place(x=-1000, y=-1000)
