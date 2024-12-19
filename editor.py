@@ -24,7 +24,7 @@ class Editor:
         self.root.title("Level Graph Editor")
 
         self.root.bind("<Key>", self.key_press_handler)
-      
+
         self.drag_line = 0
         self.scroll_x = 0
         self.scroll_y = 0
@@ -32,10 +32,12 @@ class Editor:
         self.root.bind("<B3-Motion>", self.scroll)
 
         self.root.bind("<MouseWheel>", self.on_scale)
-       
+
         self.canvas = tk.Canvas(self.root, width=1800, height=980, bg="gray20")
         self.canvas.pack(fill="both", expand=1)
-        
+
+        lvl_ids = [file_name.split(".")[0] for file_name in os.listdir(os.path.join(working_dir, 'segments'))]
+        skipped_ids = []
 
         ## Build the graph
         self.G = Graph()
@@ -46,17 +48,38 @@ class Editor:
 
             ## Create Nodes
             for node_name, node_values in graph.items():
-                self.create_node(node_name, node_values)
+                if node_name in lvl_ids:
+                    lvl_ids.remove(node_name)
+                    self.create_node(node_name, node_values)
+                else:
+                    skipped_ids.append(node_name)
+                    print(f'Level file does not exist for id: {node_name}')
 
             ## Create Edges
             for node_name, node_values in graph.items():
+                if node_name in skipped_ids:
+                    continue
+
                 for neighbor in node_values["neighbors"]:
                     self.create_edge(node_name, neighbor)
-        
+
+        x = 0
+        y = 0
+        for new_id in lvl_ids:
+            self.create_node(new_id, {
+                "x": x,
+                "y": y,
+                "reward": 0.0,
+                "neighbors": []
+            })
+
+            x += 20
+            y += 20
+
         # preview box
         self.preview_frame = tk.Frame(self.canvas)
         self.preview_frame.place(x=-1000, y=-1000) # off screen
-        
+
         self.preview_label = tk.Label(self.preview_frame, width = 32, height=17, font="TkFixedFont")
         self.preview_label.pack()
         # self.label = tk.Label(self.canvas, width=32, height=16, font="TkFixedFont")
@@ -66,17 +89,17 @@ class Editor:
         x = node_values["x"]
         y = node_values["y"]
         rect = self.canvas.create_rectangle(
-            x * self.scale, 
-            y * self.scale, 
-            (x + NODE_WIDTH) * self.scale, 
-            (y + NODE_HEIGHT)*self.scale, 
-            fill="gray93", 
+            x * self.scale,
+            y * self.scale,
+            (x + NODE_WIDTH) * self.scale,
+            (y + NODE_HEIGHT)*self.scale,
+            fill="gray93",
             tags="all"
         )
 
         frame = tk.Frame(self.canvas)
         frame.place(
-            x = x * self.scale + self.scale, 
+            x = x * self.scale + self.scale,
             y = y * self.scale + self.scale
         )
 
@@ -109,7 +132,7 @@ class Editor:
             y = y,
             rect_id = rect,
             reward_var=reward_var,
-            frame = frame, 
+            frame = frame,
             entry = r,
             level = level
         )
@@ -124,7 +147,7 @@ class Editor:
         def on_node_drag(event):
             dx = event.x_root - self.scroll_x
             dy = event.y_root - self.scroll_y
-        
+
             self.update_node(N, dx, dy)
 
             self.scroll_x = event.x_root
@@ -152,25 +175,25 @@ class Editor:
                 arrow=tk.LAST,
                 tags="all"
             )
-        
+
         # Line follows the user's cursor
         def dragging(event):
             coords = self.canvas.coords(self.drag_line)
             self.canvas.coords(
-                self.drag_line, 
-                coords[0], 
-                coords[1], 
-                event.x_root, 
+                self.drag_line,
+                coords[0],
+                coords[1],
+                event.x_root,
                 event.y_root - (NODE_HEIGHT * self.scale)
             )
-        
+
         # End Drag Line
         def end_drag(event):
             coords = self.canvas.coords(self.drag_line)
             overlapping = self.canvas.find_overlapping(
-                coords[2], 
-                coords[3], 
-                coords[2] + 10*self.scale, 
+                coords[2],
+                coords[3],
+                coords[2] + 10*self.scale,
                 coords[3] + 10*self.scale
             )
 
@@ -187,22 +210,22 @@ class Editor:
                         break
 
                 neighbor = self.G.nodes[tgt_id]
-               
+
                 # cannot connect to self and cannot add duplicate edges
                 if tgt_id != node_name and tgt_id not in N.neighbors:
                     self.create_edge(node_name, tgt_id)
-        
+
             # Delet the drag line regardless
             self.canvas.delete(self.drag_line)
 
         self.canvas.tag_bind(rect, "<ButtonPress-2>", start_drag)
         self.canvas.tag_bind(rect, "<B2-Motion>", dragging)
         self.canvas.tag_bind(rect, "<ButtonRelease-2>", end_drag)
-        
+
         label.bind("<ButtonPress-2>", start_drag)
         label.bind("<B2-Motion>", dragging)
         label.bind("<ButtonRelease-2>", end_drag)
-        
+
         r.bind("<ButtonPress-2>", start_drag)
         r.bind("<B2-Motion>", dragging)
         r.bind("<ButtonRelease-2>", end_drag)
@@ -211,24 +234,24 @@ class Editor:
         def on_enter(event):
             self.preview_label.config(text=N.level)
             self.preview_frame.place(x=(N.x + NODE_WIDTH + 1) * self.scale, y=N.y*self.scale)
-        
+
         def on_exit(event):
             self.preview_frame.place(x=-1000, y=-1000)
 
         self.canvas.tag_bind(rect, '<Enter>', on_enter)
         self.canvas.tag_bind(rect, '<Leave>', on_exit)
-    
+
         r.bind('<Enter>', on_enter)
         r.bind('<Leave>', on_exit)
-        
+
         label.bind('<Enter>', on_enter)
         label.bind('<Leave>', on_exit)
-        
+
 
     def create_edge(self, src, tgt):
         N_src: CustomNode = self.G.get_node(src)
         N_tgt: CustomNode = self.G.get_node(tgt)
-        
+
         line = self.canvas.create_line(
             (N_src.x + NODE_WIDTH) * self.scale,
             (N_src.y + NODE_HEIGHT / 2) * self.scale,
@@ -300,18 +323,18 @@ class Editor:
             line_id = self.G.get_edge(n.name, tgt).line_id
             coords = self.canvas.coords(line_id)
             self.canvas.coords(
-                line_id, 
-                (n.x + NODE_WIDTH) * self.scale, 
-                (n.y + NODE_HEIGHT / 2) * self.scale, 
-                coords[2] , 
-                coords[3]  
+                line_id,
+                (n.x + NODE_WIDTH) * self.scale,
+                (n.y + NODE_HEIGHT / 2) * self.scale,
+                coords[2] ,
+                coords[3]
             )
 
         # outgoing
         for edge in self.G.incoming_edges(n.name):
             coords = self.canvas.coords(edge.line_id)
             self.canvas.coords(
-                edge.line_id, 
+                edge.line_id,
                 coords[0],
                 coords[1],
                 n.x * self.scale,
@@ -348,7 +371,7 @@ class Editor:
                 "y": N.y,
                 "reward": N.reward_var.get(),
                 "neighbors": list(N.neighbors)
-            } 
+            }
 
         data['graph'] = graph
         print("saving graph before exiting :D")
