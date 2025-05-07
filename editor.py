@@ -78,10 +78,10 @@ class Editor:
             y += 20
 
         # preview box
-        self.preview_frame = tk.Frame(self.canvas)
+        self.preview_frame = tk.Frame(self.canvas, )
         self.preview_frame.place(x=-1000, y=-1000) # off screen
 
-        self.preview_label = tk.Label(self.preview_frame, width = 32, height=17, font="TkFixedFont")
+        self.preview_label = tk.Label(self.preview_frame, width = 32, height=17, font="TkFixedFont", bg="black")
         self.preview_label.pack()
         # self.label = tk.Label(self.canvas, width=32, height=16, font="TkFixedFont")
 
@@ -94,17 +94,17 @@ class Editor:
             y * self.scale,
             (x + NODE_WIDTH) * self.scale,
             (y + NODE_HEIGHT)*self.scale,
-            fill="gray93",
+            fill="black",
             tags="all"
         )
 
-        frame = tk.Frame(self.canvas)
+        frame = tk.Frame(self.canvas, bg="black")
         frame.place(
             x = x * self.scale + self.scale,
             y = y * self.scale + self.scale
         )
 
-        label = tk.Label(frame, text=node_name, width=ceil(5*self.scale))
+        label = tk.Label(frame, text=node_name, width=ceil(5*self.scale), bg="black", fg="white")
         label.pack()
 
         def on_reward_change():
@@ -116,7 +116,7 @@ class Editor:
             "write",
             lambda _var, _index, _mode: on_reward_change,
         )
-        r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale))
+        r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale), bg="black", fg="white")
         r.pack()
 
         with open(join(self.working_dir, 'segments', f'{node_name}.txt')) as f:
