@@ -1,3 +1,4 @@
+from typing import Dict
 import json
 import os
 import sys
@@ -383,7 +384,56 @@ class Editor:
 
 if __name__ == "__main__":
     working_dir = sys.argv[1] if len(sys.argv) == 2 else '.'
-    print(f'Working dir: {working_dir}')
+
+    if not os.path.exists(working_dir):
+        print(f"'{working_dir}' not found.")
+        exit(1)
+
+    if not os.path.exists(os.path.join(working_dir, 'segments')):
+        print(f"'segments' directory in {working_dir} not found.")
+        exit(1)
+
+
+    if not os.path.exists(os.path.join(working_dir, 'graph.json')):
+        print(f"No graph.json file was found in {working_dir}. Making it now.")
+        print("Note:")
+        print("      The naming convention that is expected is [level name]-[index].[ext].")
+        print("      If there is no -[index] then there will be only one level segment in")
+        print("      that node. Feel free to delete the graph.json and update the file names")
+        print("      you did not follow this naming convention.")
+        graph: Dict[str, any] = {
+            "scale": 1.0,
+            "graph": {}
+        }
+
+        segments_dir = os.path.join(working_dir, 'segments')
+        x = 0
+        y = 0
+        for file_name in os.listdir(segments_dir):
+            # split_res = file_name.rsplit("-", 1)
+
+            # if len(split_res) == 1:
+            #     level[file_name.split('.')[0]] = {}
+            # else:
+            #     pass
+            with open(os.path.join(segments_dir, file_name)) as f:
+                level = f.readlines()
+                graph['graph'][file_name.split(".")[0]] = {
+                    "levels": [level],
+                    "reward": 0,
+                    "x": 0,
+                    "y": 0,
+                    "neighbors": []
+                }
+
+            x += NODE_WIDTH
+            if x > 720:
+                x = 0
+                y += NODE_HEIGHT
+
+
+        with open(os.path.join(working_dir, 'graph.json'), 'w') as f:
+            json.dump(graph, f)
 
     root = tk.Tk()
     app = Editor(root, working_dir)
