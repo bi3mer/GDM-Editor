@@ -421,8 +421,8 @@ if __name__ == "__main__":
                 graph['graph'][file_name.split(".")[0]] = {
                     "levels": [level],
                     "reward": 0,
-                    "x": 0,
-                    "y": 0,
+                    "x": x,
+                    "y": y,
                     "neighbors": []
                 }
 
