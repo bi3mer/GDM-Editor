@@ -1,3 +1,4 @@
+from posix import listdir
 from typing import Dict
 import json
 import os
@@ -9,6 +10,7 @@ from os.path import join
 from custom_edge import CustomEdge
 from custom_node import CustomNode
 from GDM.Graph import Graph
+from random import choice
 
 NODE_WIDTH  = 60
 NODE_HEIGHT = 60
@@ -37,7 +39,7 @@ class Editor:
         self.canvas = tk.Canvas(self.root, width=1800, height=980, bg="gray20")
         self.canvas.pack(fill="both", expand=1)
 
-        lvl_ids = [file_name.split(".")[0] for file_name in os.listdir(os.path.join(working_dir, 'segments'))]
+        lvl_ids = set()
         skipped_ids = []
 
         ## Build the graph
@@ -49,12 +51,8 @@ class Editor:
 
             ## Create Nodes
             for node_name, node_values in graph.items():
-                if node_name in lvl_ids:
-                    lvl_ids.remove(node_name)
-                    self.create_node(node_name, node_values)
-                else:
-                    skipped_ids.append(node_name)
-                    print(f'Level file does not exist for id: {node_name}')
+                lvl_ids.add(node_name)
+                self.create_node(node_name, node_values)
 
             ## Create Edges
             for node_name, node_values in graph.items():
@@ -64,18 +62,41 @@ class Editor:
                 for neighbor in node_values["neighbors"]:
                     self.create_edge(node_name, neighbor)
 
-        x = 0
-        y = 0
-        for new_id in lvl_ids:
-            self.create_node(new_id, {
-                "x": x,
-                "y": y,
-                "reward": 0.0,
-                "neighbors": []
-            })
+        print('WARNING: not handling new levels added')
+        print('WARNING: not handling new levels removed')
+        for file_name in listdir(join(working_dir, 'segments')):
+            split_res = file_name.rsplit("-", 1)
+            if len(split_res) == 1:
+                name = file_name.split('.')[0]
+            else:
+                name,_ = split_res
 
-            x += 20
-            y += 20
+            if name not in self.G.nodes:
+                graph['graph'][name] = {
+                    "levels": name_to_levels[name],
+                    "reward": 0,
+                    "x": x,
+                    "y": y,
+                    "neighbors": []
+                }
+                print(name)
+
+
+        # have to handle the problem of indexing -X and the problem of a
+        # brand new level
+        #
+        # x = 0
+        # y = 0
+        # for new_id in lvl_ids:
+        #     self.create_node(new_id, {
+        #         "x": x,
+        #         "y": y,
+        #         "reward": 0.0,
+        #         "neighbors": []
+        #     })
+
+        #     x += 20
+        #     y += 20
 
         # preview box
         self.preview_frame = tk.Frame(self.canvas, )
@@ -119,9 +140,6 @@ class Editor:
         r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale), bg="black", fg="white")
         r.pack()
 
-        with open(join(self.working_dir, 'segments', f'{node_name}.txt')) as f:
-            level = f.read()
-
         ## Add node to the graph
         N = CustomNode(
             name = node_name,
@@ -135,7 +153,7 @@ class Editor:
             reward_var=reward_var,
             frame = frame,
             entry = r,
-            level = level
+            levels = node_values["levels"]
         )
 
         self.G.add_node(N)
@@ -210,7 +228,7 @@ class Editor:
                         tgt_id = n
                         break
 
-                neighbor = self.G.nodes[tgt_id]
+                # neighbor = self.G.nodes[tgt_id]
 
                 # cannot connect to self and cannot add duplicate edges
                 if tgt_id != node_name and tgt_id not in N.neighbors:
@@ -233,7 +251,9 @@ class Editor:
 
         ## On Hover
         def on_enter(event):
-            self.preview_label.config(text=N.level)
+            file_name = choice(N.levels)
+            with open(join(self.working_dir, 'segments', file_name), 'r') as f:
+                self.preview_label.config(text=f.read())
             self.preview_frame.place(x=(N.x + NODE_WIDTH + 1) * self.scale, y=N.y*self.scale)
 
         def on_exit(event):
@@ -408,27 +428,24 @@ if __name__ == "__main__":
 
         segments_dir = os.path.join(working_dir, 'segments')
 
-        name_to_levels = {}
+        name_to_files = {}
         for file_name in os.listdir(segments_dir):
             split_res = file_name.rsplit("-", 1)
             if len(split_res) == 1:
                 name = file_name.split('.')[0]
-                if name not in name_to_levels:
-                    name_to_levels[name] = []
             else:
                 name,_ = split_res
-                if name not in name_to_levels:
-                    name_to_levels[name] = []
 
-            with open(os.path.join(segments_dir, file_name)) as f:
-                name_to_levels[name].append(f.read().splitlines())
-
+            if name in name_to_files:
+                name_to_files[name].append(file_name)
+            else:
+                name_to_files[name] = [file_name]
 
         x = 0
         y = 0
-        for name in name_to_levels:
+        for name in name_to_files:
             graph['graph'][name] = {
-                "levels": name_to_levels[name],
+                "levels": name_to_files[name],
                 "reward": 0,
                 "x": x,
                 "y": y,

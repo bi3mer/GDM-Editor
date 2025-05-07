@@ -1,9 +1,8 @@
 import tkinter as tk
 from dataclasses import dataclass
-from typing import Set
+from typing import Set, List
 
 from GDM.Graph.Node import Node
-
 
 @dataclass
 class CustomNode(Node):
@@ -13,4 +12,4 @@ class CustomNode(Node):
     reward_var: tk.DoubleVar
     frame: tk.Frame
     entry: tk.Entry
-    level: str
+    levels: List[str]
