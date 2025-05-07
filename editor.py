@@ -400,36 +400,46 @@ if __name__ == "__main__":
         print("      The naming convention that is expected is [level name]-[index].[ext].")
         print("      If there is no -[index] then there will be only one level segment in")
         print("      that node. Feel free to delete the graph.json and update the file names")
-        print("      you did not follow this naming convention.")
+        print("      you did not follow this naming convention. Don't use '-' otherwise.")
         graph: Dict[str, any] = {
             "scale": 1.0,
             "graph": {}
         }
 
         segments_dir = os.path.join(working_dir, 'segments')
-        x = 0
-        y = 0
+
+        name_to_levels = {}
         for file_name in os.listdir(segments_dir):
-            # split_res = file_name.rsplit("-", 1)
+            split_res = file_name.rsplit("-", 1)
+            if len(split_res) == 1:
+                name = file_name.split('.')[0]
+                if name not in name_to_levels:
+                    name_to_levels[name] = []
+            else:
+                name,_ = split_res
+                if name not in name_to_levels:
+                    name_to_levels[name] = []
 
-            # if len(split_res) == 1:
-            #     level[file_name.split('.')[0]] = {}
-            # else:
-            #     pass
             with open(os.path.join(segments_dir, file_name)) as f:
-                level = f.readlines()
-                graph['graph'][file_name.split(".")[0]] = {
-                    "levels": [level],
-                    "reward": 0,
-                    "x": x,
-                    "y": y,
-                    "neighbors": []
-                }
+                name_to_levels[name].append(f.readlines())
 
-            x += NODE_WIDTH
-            if x > 720:
-                x = 0
-                y += NODE_HEIGHT
+        # x = 0
+        # y = 0
+        for name in name_to_levels:
+            print(name, len(name_to_levels[name]))
+            #     graph['graph'][file_name.split(".")[0]] = {
+            #         "levels": lev
+            #         "reward": 0,
+            #         "x": x,
+            #         "y": y,
+            #         "neighbors": []
+            #     }
+
+            # x += NODE_WIDTH
+            # if x > 720:
+            #     x = 0
+            #     y += NODE_HEIGHT
+        exit(1)
 
 
         with open(os.path.join(working_dir, 'graph.json'), 'w') as f:
