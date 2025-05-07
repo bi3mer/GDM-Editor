@@ -421,29 +421,28 @@ if __name__ == "__main__":
                     name_to_levels[name] = []
 
             with open(os.path.join(segments_dir, file_name)) as f:
-                name_to_levels[name].append(f.readlines())
+                name_to_levels[name].append(f.read().splitlines())
 
-        # x = 0
-        # y = 0
+
+        x = 0
+        y = 0
         for name in name_to_levels:
-            print(name, len(name_to_levels[name]))
-            #     graph['graph'][file_name.split(".")[0]] = {
-            #         "levels": lev
-            #         "reward": 0,
-            #         "x": x,
-            #         "y": y,
-            #         "neighbors": []
-            #     }
+            graph['graph'][name] = {
+                "levels": name_to_levels[name],
+                "reward": 0,
+                "x": x,
+                "y": y,
+                "neighbors": []
+            }
 
-            # x += NODE_WIDTH
-            # if x > 720:
-            #     x = 0
-            #     y += NODE_HEIGHT
-        exit(1)
+            x += NODE_WIDTH
+            if x > 720:
+                x = 0
+                y += NODE_HEIGHT
 
 
         with open(os.path.join(working_dir, 'graph.json'), 'w') as f:
-            json.dump(graph, f)
+            json.dump(graph, f, indent=2)
 
     root = tk.Tk()
     app = Editor(root, working_dir)
