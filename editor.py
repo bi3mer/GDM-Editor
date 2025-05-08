@@ -54,6 +54,8 @@ class Editor:
                 if node_name in lvl_ids:
                     lvl_ids.remove(node_name)
                     self.create_node(node_name, node_values)
+                elif node_name == 'start' or node_name == 'end':
+                    self.create_node(node_name, node_values)
                 else:
                     skipped_ids.append(node_name)
                     print(f'Level file does not exist for id: {node_name}')
@@ -121,18 +123,21 @@ class Editor:
         r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale), bg="black", fg="white")
         r.pack()
 
-        with open(join(self.working_dir, 'segments', f'{node_name}.txt')) as f:
-            levels = []
-            level = []
-            for line in f:
-                l = line.strip()
-                if l == "&":
-                    levels.append('\n'.join(level))
-                    level = []
-                else:
-                    level.append(l)
+        if node_name == 'start' or node_name == 'end':
+           levels = []
+        else:
+            with open(join(self.working_dir, 'segments', f'{node_name}.txt')) as f:
+                levels = []
+                level = []
+                for line in f:
+                    l = line.strip()
+                    if l == "&":
+                        levels.append('\n'.join(level))
+                        level = []
+                    else:
+                        level.append(l)
 
-            levels.append('\n'.join(level))
+                levels.append('\n'.join(level))
 
         ## Add node to the graph
         N = CustomNode(
@@ -410,7 +415,20 @@ if __name__ == "__main__":
         print(f"No graph.json file was found in {working_dir}. Making it now.")
         graph: Dict[str, any] = {
             "scale": 1.0,
-            "graph": {}
+            "graph": {
+                "start": {
+                  "x": 0,
+                  "y": 200,
+                  "reward": 0.0,
+                  "neighbors": []
+                },
+                "end": {
+                  "x": 480,
+                  "y": 200,
+                  "reward": 0.0,
+                  "neighbors": []
+                },
+            }
         }
 
         with open(os.path.join(working_dir, 'graph.json'), 'w') as f:
