@@ -39,7 +39,7 @@ class Editor:
         self.canvas = tk.Canvas(self.root, width=1800, height=980, bg="gray20")
         self.canvas.pack(fill="both", expand=1)
 
-        lvl_ids = set()
+        lvl_ids = [file_name.split(".")[0] for file_name in os.listdir(os.path.join(working_dir, 'segments'))]
         skipped_ids = []
 
         ## Build the graph
@@ -51,8 +51,12 @@ class Editor:
 
             ## Create Nodes
             for node_name, node_values in graph.items():
-                lvl_ids.add(node_name)
-                self.create_node(node_name, node_values)
+                if node_name in lvl_ids:
+                    lvl_ids.remove(node_name)
+                    self.create_node(node_name, node_values)
+                else:
+                    skipped_ids.append(node_name)
+                    print(f'Level file does not exist for id: {node_name}')
 
             ## Create Edges
             for node_name, node_values in graph.items():
@@ -62,41 +66,18 @@ class Editor:
                 for neighbor in node_values["neighbors"]:
                     self.create_edge(node_name, neighbor)
 
-        print('WARNING: not handling new levels added')
-        print('WARNING: not handling new levels removed')
-        for file_name in listdir(join(working_dir, 'segments')):
-            split_res = file_name.rsplit("-", 1)
-            if len(split_res) == 1:
-                name = file_name.split('.')[0]
-            else:
-                name,_ = split_res
+        x = 0
+        y = 0
+        for new_id in lvl_ids:
+            self.create_node(new_id, {
+                "x": x,
+                "y": y,
+                "reward": 0.0,
+                "neighbors": []
+            })
 
-            if name not in self.G.nodes:
-                graph['graph'][name] = {
-                    "levels": name_to_levels[name],
-                    "reward": 0,
-                    "x": x,
-                    "y": y,
-                    "neighbors": []
-                }
-                print(name)
-
-
-        # have to handle the problem of indexing -X and the problem of a
-        # brand new level
-        #
-        # x = 0
-        # y = 0
-        # for new_id in lvl_ids:
-        #     self.create_node(new_id, {
-        #         "x": x,
-        #         "y": y,
-        #         "reward": 0.0,
-        #         "neighbors": []
-        #     })
-
-        #     x += 20
-        #     y += 20
+            x += 20
+            y += 20
 
         # preview box
         self.preview_frame = tk.Frame(self.canvas, )
@@ -140,6 +121,19 @@ class Editor:
         r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale), bg="black", fg="white")
         r.pack()
 
+        with open(join(self.working_dir, 'segments', f'{node_name}.txt')) as f:
+            levels = []
+            level = []
+            for line in f:
+                l = line.strip()
+                if l == "&":
+                    levels.append('\n'.join(level))
+                    level = []
+                else:
+                    level.append(l)
+
+            levels.append('\n'.join(level))
+
         ## Add node to the graph
         N = CustomNode(
             name = node_name,
@@ -153,7 +147,7 @@ class Editor:
             reward_var=reward_var,
             frame = frame,
             entry = r,
-            levels = node_values["levels"]
+            levels = levels
         )
 
         self.G.add_node(N)
@@ -251,9 +245,7 @@ class Editor:
 
         ## On Hover
         def on_enter(event):
-            file_name = choice(N.levels)
-            with open(join(self.working_dir, 'segments', file_name), 'r') as f:
-                self.preview_label.config(text=f.read())
+            self.preview_label.config(text=choice(N.levels))
             self.preview_frame.place(x=(N.x + NODE_WIDTH + 1) * self.scale, y=N.y*self.scale)
 
         def on_exit(event):
@@ -416,47 +408,10 @@ if __name__ == "__main__":
 
     if not os.path.exists(os.path.join(working_dir, 'graph.json')):
         print(f"No graph.json file was found in {working_dir}. Making it now.")
-        print("Note:")
-        print("      The naming convention that is expected is [level name]-[index].[ext].")
-        print("      If there is no -[index] then there will be only one level segment in")
-        print("      that node. Feel free to delete the graph.json and update the file names")
-        print("      you did not follow this naming convention. Don't use '-' otherwise.")
         graph: Dict[str, any] = {
             "scale": 1.0,
             "graph": {}
         }
-
-        segments_dir = os.path.join(working_dir, 'segments')
-
-        name_to_files = {}
-        for file_name in os.listdir(segments_dir):
-            split_res = file_name.rsplit("-", 1)
-            if len(split_res) == 1:
-                name = file_name.split('.')[0]
-            else:
-                name,_ = split_res
-
-            if name in name_to_files:
-                name_to_files[name].append(file_name)
-            else:
-                name_to_files[name] = [file_name]
-
-        x = 0
-        y = 0
-        for name in name_to_files:
-            graph['graph'][name] = {
-                "levels": name_to_files[name],
-                "reward": 0,
-                "x": x,
-                "y": y,
-                "neighbors": []
-            }
-
-            x += NODE_WIDTH
-            if x > 720:
-                x = 0
-                y += NODE_HEIGHT
-
 
         with open(os.path.join(working_dir, 'graph.json'), 'w') as f:
             json.dump(graph, f, indent=2)
