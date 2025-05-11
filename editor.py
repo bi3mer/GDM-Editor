@@ -1,5 +1,4 @@
-from posix import listdir
-from typing import Dict
+from typing import Dict, List
 import json
 import os
 import sys
@@ -54,7 +53,7 @@ class Editor:
                 if node_name in lvl_ids:
                     lvl_ids.remove(node_name)
                     self.create_node(node_name, node_values)
-                elif node_name == 'start' or node_name == 'end':
+                elif node_name == 'start':
                     self.create_node(node_name, node_values)
                 else:
                     skipped_ids.append(node_name)
@@ -82,7 +81,7 @@ class Editor:
             y += 20
 
         # preview box
-        self.preview_frame = tk.Frame(self.canvas, )
+        self.preview_frame = tk.Frame(self.canvas)
         self.preview_frame.place(x=-1000, y=-1000) # off screen
 
         self.preview_label = tk.Label(self.preview_frame, width = 32, height=17, font="TkFixedFont", bg="black")
@@ -123,7 +122,7 @@ class Editor:
         r = tk.Entry(frame, textvariable=reward_var, width=ceil(3*self.scale), bg="black", fg="white")
         r.pack()
 
-        if node_name == 'start' or node_name == 'end':
+        if node_name == 'start':
            levels = []
         else:
             with open(join(self.working_dir, 'segments', f'{node_name}.txt')) as f:
@@ -316,7 +315,6 @@ class Editor:
         n.x += dx
         n.y += dy
 
-
         # rectangle
         self.canvas.coords(
             n.rect_id,
@@ -378,6 +376,25 @@ class Editor:
             self.update_node(n, 0, 0)
 
     def on_exit(self):
+        # Figure out the depth of every node from the start node
+        queue: List[tuple[str, int]] = [("start", 0)]
+        depth: Dict[str, int] = {
+            "start": 0
+        }
+        visited = set()
+
+        while len(queue) > 0:
+            name, d = queue.pop()
+            new_depth = d + 1
+
+            for neighbor_name in self.G.neighbors(name):
+                if neighbor_name in visited:
+                    continue
+
+                visited.add(neighbor_name)
+                depth[neighbor_name] = new_depth
+                queue.append((neighbor_name, new_depth))
+
         data = {
             "scale": self.scale,
         }
@@ -388,7 +405,8 @@ class Editor:
                 "x": N.x,
                 "y": N.y,
                 "reward": N.reward_var.get(),
-                "neighbors": list(N.neighbors)
+                "neighbors": list(N.neighbors),
+                "depth": depth[node_name]
             }
 
         data['graph'] = graph
@@ -418,12 +436,6 @@ if __name__ == "__main__":
             "graph": {
                 "start": {
                   "x": 0,
-                  "y": 200,
-                  "reward": 0.0,
-                  "neighbors": []
-                },
-                "end": {
-                  "x": 480,
                   "y": 200,
                   "reward": 0.0,
                   "neighbors": []
