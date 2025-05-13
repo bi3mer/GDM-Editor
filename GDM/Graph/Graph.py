@@ -1,4 +1,3 @@
-from ast import Call
 from typing import Callable, Dict, List, Set, Tuple
 
 from .Edge import Edge
@@ -22,7 +21,7 @@ class Graph:
         assert node.name not in self.nodes
         self.nodes[node.name] = node
 
-    def add_default_node(self, node_name: str, reward: float=1.0, utility: float=0.0, 
+    def add_default_node(self, node_name: str, reward: float=1.0, utility: float=0.0,
                          terminal: bool=False, neighbors: Set[str]=None):
 
         assert node_name not in self.nodes
@@ -57,7 +56,7 @@ class Graph:
             probabilities.pop(index)
             p_value /= len(probabilities)
             e.probability = [(name, p + p_value) for name, p in probabilities]
-        
+
         for e in edges_to_remove:
             self.remove_edge(e.src, e.tgt)
 
@@ -76,7 +75,7 @@ class Graph:
         assert edge.tgt in self.nodes
         assert (edge.src, edge.tgt) not in self.edges
         self.edges[(edge.src, edge.tgt)] = edge
-        
+
         neighbors = self.nodes[edge.src].neighbors
         if edge.tgt not in neighbors:
             neighbors.add(edge.tgt)
@@ -96,7 +95,7 @@ class Graph:
         del self.edges[(src_node, tgt_node)]
 
     ##### Useful Functions
-    # WARNING: inefficient implementation, could be a lot smarter. Don't use if 
+    # WARNING: inefficient implementation, could be a lot smarter. Don't use if
     # you need something to run quickly
     def incoming_edges(self, node_name: str) -> List[Edge]:
         edges = []
