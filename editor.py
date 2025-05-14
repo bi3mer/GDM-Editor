@@ -428,7 +428,6 @@ if __name__ == "__main__":
         print(f"'segments' directory in {working_dir} not found.")
         exit(1)
 
-
     if not os.path.exists(os.path.join(working_dir, 'graph.json')):
         print(f"No graph.json file was found in {working_dir}. Making it now.")
         graph: Dict[str, any] = {
